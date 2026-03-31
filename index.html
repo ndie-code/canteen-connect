@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen Connect - Student</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+        }
+
+        .animate-pop {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* ตกแต่ง scrollbar ให้ดูดี */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen">
+
+    <div class="max-w-md mx-auto p-4">
+
+        <section id="step1" class="bg-white p-8 rounded-[2.5rem] shadow-2xl mt-10 border border-slate-100">
+            <div class="text-center mb-8">
+                <div
+                    class="w-20 h-20 bg-blue-600 rounded-3xl rotate-12 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-200">
+                    <span class="text-4xl -rotate-12">🍱</span>
+                </div>
+                <h2 class="text-3xl font-black text-slate-800">Canteen Connect</h2>
+                <p class="text-slate-400 text-sm">โรงเรียนราชบริฆานุเคราะห์</p>
+            </div>
+
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2">Student
+                        ID</label>
+                    <input id="studentID" type="number"
+                        oninput="if(this.value.length > 5) this.value = this.value.slice(0, 5);"
+                        placeholder="กรอกเลข 5 หลัก"
+                        class="w-full p-5 bg-slate-50 border-2 border-transparent rounded-2xl text-center text-2xl font-bold focus:bg-white focus:border-blue-500 outline-none transition-all">
+                </div>
+
+                <button onclick="toStep2()"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-2xl font-bold text-lg shadow-xl shadow-blue-200 transition-all active:scale-95">
+                    เข้าสู่ระบบ ➜
+                </button>
+            </div>
+        </section>
+
+        <section id="step2" class="hidden animate-pop">
+            <div class="flex justify-between items-start mt-8 mb-6">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800">เลือกร้านอาหาร</h2>
+                    <p id="userNameDisplay" class="text-blue-600 font-medium"></p>
+                </div>
+                <button onclick="logout()" class="text-xs text-red-400 underline mt-1">ออกจากระบบ</button>
+            </div>
+            <div id="shopList" class="grid grid-cols-1 gap-4"></div>
+        </section>
+
+        <section id="step3" class="hidden space-y-4 animate-pop pb-32">
+            <button onclick="backToStep2()"
+                class="bg-white px-4 py-2 rounded-full text-blue-600 text-sm font-bold shadow-sm border border-slate-100 flex items-center">
+                <span class="mr-2">←</span> เปลี่ยนร้าน
+            </button>
+
+            <div class="bg-gradient-to-br from-blue-600 to-blue-700 p-8 rounded-[2rem] text-white shadow-xl">
+                <h2 id="selectedShopName" class="text-3xl font-black">ชื่อร้านค้า</h2>
+                <p class="opacity-80 text-sm mt-1">เมนูวันนี้น่ากินมาก!</p>
+            </div>
+
+            <div id="menuList" class="grid grid-cols-1 gap-4 px-1"></div>
+
+            <div id="cartArea"
+                class="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-white p-6 rounded-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border border-slate-100 transition-all z-50">
+                <p class="text-slate-400 text-center py-2 text-sm italic">ยังไม่ได้เลือกเมนู</p>
+            </div>
+        </section>
+
+        <section id="step4" class="hidden animate-pop text-center mt-10">
+            <div class="bg-white p-10 rounded-[3rem] shadow-2xl border-b-[16px] border-blue-600">
+                <p class="text-slate-400 font-bold uppercase tracking-widest text-xs mb-2">คิวของคุณคือ</p>
+                <h1 id="myQueueNumber" class="text-9xl font-black text-slate-800 tracking-tighter mb-6">--</h1>
+
+                <div class="bg-blue-50 p-6 rounded-3xl border border-blue-100">
+                    <p id="orderStatus" class="text-blue-700 font-bold text-lg mb-4">⌛ กำลังรอคิว...</p>
+                    <div class="flex justify-around items-center bg-white p-5 rounded-2xl shadow-sm">
+                        <div class="text-center">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold">กำลังเรียก</p>
+                            <p id="currentServing" class="text-3xl font-black text-blue-600">--</p>
+                        </div>
+                        <div class="w-px h-12 bg-slate-100"></div>
+                        <div class="text-center">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold">รออีก</p>
+                            <p id="queuesLeft" class="text-3xl font-black text-orange-500">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="location.reload()"
+                    class="mt-10 text-slate-400 hover:text-blue-600 font-bold text-sm transition-all underline">
+                    กลับหน้าหลัก / สั่งใหม่
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // 🚩 Firebase Config ของปิ่นโต
+        const firebaseConfig = {
+            apiKey: "AIzaSyBUqWx7_Bht2LpLdZ2xlHTjSyZXM6Hm9wA",
+            authDomain: "schoolqueue-66054.firebaseapp.com",
+            databaseURL: "https://schoolqueue-66054-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "schoolqueue-66054",
+            storageBucket: "schoolqueue-66054.firebasestorage.app",
+            messagingSenderId: "1053844258705",
+            appId: "1:1053844258705:web:c6bd3ad8d657b45a8ea430",
+            measurementId: "G-KHGFTXH0C6"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentStudentID = "";
+        let currentStudentName = "";
+        let currentShopID = "";
+        let cart = [];
+
+        window.onload = function () {
+            const savedID = localStorage.getItem('studentID');
+            if (savedID) {
+                document.getElementById('studentID').value = savedID;
+                toStep2(true);
+            }
+        };
+
+        function toStep2(isAuto = false) {
+            const idInput = document.getElementById('studentID').value;
+            if (!idInput) return;
+
+            db.ref('valid_students/' + idInput).once('value', snapshot => {
+                if (snapshot.exists()) {
+                    localStorage.setItem('studentID', idInput);
+                    currentStudentName = snapshot.val();
+                    currentStudentID = idInput;
+                    document.getElementById('userNameDisplay').innerText = "สวัสดี, " + currentStudentName;
+                    document.getElementById('step1').classList.add('hidden');
+                    document.getElementById('step2').classList.remove('hidden');
+                    loadShops();
+                } else {
+                    if (!isAuto) alert("⚠️ ไม่พบเลขประจำตัวในระบบ");
+                    localStorage.removeItem('studentID');
+                }
+            });
+        }
+
+        function logout() {
+            if (confirm("ต้องการออกจากระบบใช่หรือไม่?")) {
+                localStorage.removeItem('studentID');
+                location.reload();
+            }
+        }
+
+        function loadShops() {
+            db.ref('shops').once('value', snapshot => {
+                const shops = snapshot.val();
+                let html = '';
+                for (let id in shops) {
+                    html += `
+                        <button onclick="toStep3('${id}', '${shops[id].name}')" 
+                                class="bg-white p-7 rounded-[2rem] shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-xl hover:scale-[1.02] transition-all group">
+                            <span class="text-xl font-bold text-slate-700">${shops[id].name}</span>
+                            <span class="bg-blue-600 text-white p-3 rounded-2xl group-hover:px-6 transition-all">➜</span>
+                        </button>`;
+                }
+                document.getElementById('shopList').innerHTML = html;
+            });
+        }
+
+        function backToStep2() {
+            document.getElementById('step3').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+            cart = [];
+        }
+
+        function toStep3(shopID, shopName) {
+            currentShopID = shopID;
+            document.getElementById('selectedShopName').innerText = shopName;
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.remove('hidden');
+            loadMenu(shopID);
+        }
+
+        // 🚩 ฟังก์ชันโหลดเมนู (เพิ่มส่วนแสดงรูปภาพ)
+        function loadMenu(shopID) {
+            db.ref(`shops/${shopID}/menu`).on('value', snapshot => {
+                const menu = snapshot.val();
+                let html = '';
+                for (let key in menu) {
+                    // 1. เช็กสถานะ available (ถ้าไม่มีค่าใน DB ให้ถือว่าเป็น true/เปิดขาย)
+                    const isAvailable = menu[key].available !== false;
+
+                    // 2. จัดการรูปภาพ
+                    const imgUrl = menu[key].image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=200&h=200&auto=format&fit=crop';
+
+                    html += `
+                        <div class="bg-white p-3 rounded-3xl flex items-center gap-4 border border-slate-100 shadow-sm transition-all ${isAvailable ? 'hover:shadow-md' : 'opacity-60'}">
+                            
+                            <div class="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 bg-slate-100 relative">
+                                <img src="${imgUrl}" class="w-full h-full object-cover ${isAvailable ? '' : 'grayscale'}" alt="${menu[key].name}">
+                                
+                                ${!isAvailable ? `
+                                <div class="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                    <span class="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-lg">หมด</span>
+                                </div>` : ''}
+                            </div>
+
+                            <div class="flex-grow">
+                                <p class="font-bold ${isAvailable ? 'text-slate-800' : 'text-slate-400 line-through'} text-lg leading-tight">${menu[key].name}</p>
+                                <p class="${isAvailable ? 'text-blue-600' : 'text-slate-400'} font-black text-xl mt-1">${menu[key].price}.-</p>
+                            </div>
+
+                            <button 
+                                onclick="${isAvailable ? `addToCart('${menu[key].name}', ${menu[key].price})` : ''}" 
+                                class="w-12 h-12 rounded-2xl font-bold transition-all flex items-center justify-center text-2xl
+                                ${isAvailable
+                            ? 'bg-slate-900 text-white hover:bg-blue-600 active:scale-90'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'}"
+                                ${isAvailable ? '' : 'disabled'}>
+                                ${isAvailable ? '+' : '✕'}
+                            </button>
+                        </div>`;
+                }
+                document.getElementById('menuList').innerHTML = html || '<p class="text-center py-10 text-slate-400">ยังไม่มีเมนูในขณะนี้</p>';
+            });
+        }
+
+        function addToCart(name, price) {
+            cart.push({ name, price });
+            renderCart();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+
+        function renderCart() {
+            const cartDiv = document.getElementById('cartArea');
+            if (cart.length === 0) {
+                cartDiv.innerHTML = '<p class="text-slate-400 text-center py-2 text-sm italic">ยังไม่ได้เลือกเมนู</p>';
+                return;
+            }
+
+            let total = 0;
+            let html = '<div class="max-h-24 overflow-y-auto mb-3 space-y-1 pr-2">';
+            cart.forEach((item, index) => {
+                total += item.price;
+                html += `
+                    <div class="flex justify-between items-center text-sm font-medium text-slate-600">
+                        <span class="truncate pr-4">${item.name}</span>
+                        <div class="flex items-center">
+                            <span class="mr-3 font-bold text-slate-800">${item.price}.-</span>
+                            <button onclick="removeFromCart(${index})" class="text-red-500 bg-red-50 w-6 h-6 rounded-full flex items-center justify-center font-bold">×</button>
+                        </div>
+                    </div>`;
+            });
+            html += `</div>
+                     <div class="border-t border-slate-100 pt-3 flex justify-between items-center">
+                        <span class="font-bold text-slate-400 uppercase text-[10px] tracking-widest">ยอดรวม</span>
+                        <span class="text-2xl font-black text-blue-600">${total}.-</span>
+                     </div>
+                     <button onclick="confirmOrder(${total})" class="w-full bg-blue-600 text-white py-4 rounded-2xl mt-3 font-black text-lg shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95">
+                        สั่งอาหารเลย ➜
+                     </button>`;
+            cartDiv.innerHTML = html;
+        }
+
+        function confirmOrder(totalPrice) {
+            if (!confirm("ยืนยันออเดอร์นี้ใช่หรือไม่?")) return;
+            db.ref(`queues/${currentShopID}/last`).transaction(curr => (curr || 0) + 1, (err, comm, snap) => {
+                if (comm) {
+                    const qNum = snap.val();
+                    db.ref(`orders/${currentShopID}`).push({
+                        studentID: currentStudentID,
+                        studentName: currentStudentName,
+                        items: cart,
+                        totalPrice: totalPrice,
+                        queue: qNum,
+                        status: 'waiting',
+                        timestamp: Date.now()
+                    });
+                    cart = [];
+                    showQueue(qNum);
+                }
+            });
+        }
+
+        function showQueue(num) {
+            document.getElementById('myQueueNumber').innerText = num;
+            document.getElementById('step3').classList.add('hidden');
+            document.getElementById('step4').classList.remove('hidden');
+
+            // 1. ขออนุญาตแจ้งเตือน (Notification)
+            if (Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+
+            // 2. ติดตามคิวปัจจุบัน (Real-time Queue Tracking)
+            db.ref(`queues/${currentShopID}/current`).on('value', snapshot => {
+                const current = snapshot.val() || 0;
+                const left = num - current;
+                document.getElementById('currentServing').innerText = current;
+
+                const statusText = document.getElementById('orderStatus');
+
+                if (left > 0) {
+                    document.getElementById('queuesLeft').innerText = left;
+                    statusText.innerText = "⌛ รออีก " + left + " คิวครับ...";
+                    statusText.className = "text-blue-700 font-bold text-lg mb-4";
+                } else if (left === 0) {
+                    document.getElementById('queuesLeft').innerText = "!";
+                    statusText.innerText = "🔔 อาหารเสร็จแล้ว! มารับได้เลย";
+                    statusText.className = "text-green-600 font-black text-2xl mb-4 animate-bounce";
+
+                    // 📳 สั่นมือถือ
+                    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
+
+                    // 📢 แจ้งเตือน Notification
+                    if (Notification.permission === "granted") {
+                        new Notification("Canteen Connect", {
+                            body: "คิวที่ #" + num + " ของคุณเสร็จแล้วครับ! 🍱",
+                            icon: "https://cdn-icons-png.flaticon.com/512/1046/1046747.png"
+                        });
+                    }
+                } else {
+                    document.getElementById('queuesLeft').innerText = "✓";
+                    statusText.innerText = "✅ รับอาหารเรียบร้อย ขอบคุณครับ";
+                    statusText.className = "text-slate-400 font-bold text-lg mb-4";
+                }
+            });
+
+            // 3. ติดตามสถานะ 'กำลังทำ' (Cooking Status)
+            db.ref(`orders/${currentShopID}`).orderByChild('queue').equalTo(num).on('value', snap => {
+                snap.forEach(child => {
+                    const orderData = child.val();
+                    const statusText = document.getElementById('orderStatus');
+
+                    // ถ้าแม่ค้ากด COOKING จากหน้า Admin
+                    if (orderData.status === 'cooking') {
+                        statusText.innerText = "👨‍🍳 ร้านกำลังปรุงอาหารของคุณ...";
+                        statusText.className = "text-orange-500 font-bold text-xl mb-4 animate-pulse";
+                    }
+                });
+            });
+        } // <--- จบฟังก์ชันตรงนี้
+    </script>
+</body>
+
+</html>
