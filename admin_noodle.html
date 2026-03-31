@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>หลังร้าน - Merchant Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-white p-4 md:p-8 min-h-screen">
+
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <div class="lg:col-span-2">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                    <h2 class="text-4xl font-black text-orange-400 tracking-tight">Incoming Orders</h2>
+                    <p id="shopTitle" class="text-slate-500 font-bold uppercase tracking-widest mt-1">
+                        กำลังโหลดชื่อร้าน...</p>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-3xl flex items-center gap-4 shadow-xl">
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 uppercase font-black">กำลังเรียกคิว</p>
+                        <p id="currentServingDisplay" class="text-3xl font-black text-green-400 leading-none">--</p>
+                    </div>
+                    <div class="w-px h-10 bg-slate-800"></div>
+                    <span class="text-2xl">🔔</span>
+                </div>
+            </div>
+
+            <div id="orderList" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <section class="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl sticky top-8">
+                <div
+                    class="bg-gradient-to-br from-orange-500 to-red-600 p-6 rounded-[2rem] mb-8 shadow-xl shadow-orange-900/20 border border-orange-400/20">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-[10px] text-orange-100 uppercase font-black tracking-[0.2em]">Today's Revenue</p>
+                        <span class="text-xs bg-white/20 px-2 py-0.5 rounded-lg text-white font-bold"
+                            id="todayDate">--</span>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <h2 id="todayTotalSales" class="text-5xl font-black text-white tracking-tighter">0.-</h2>
+                        <div class="text-right">
+                            <p id="todayOrderCount" class="text-lg font-black text-white">0</p>
+                            <p class="text-[9px] text-orange-100 uppercase font-bold">Orders</p>
+                        </div>
+                    </div>
+                </div>
+                <h2 class="text-2xl font-black mb-8 text-blue-400 flex items-center gap-3">
+                    <span class="bg-blue-500/20 p-2 rounded-xl">🍱</span> จัดการเมนูวันนี้
+                </h2>
+
+                <div class="space-y-4 mb-8">
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-500 font-bold ml-2 uppercase">ชื่อเมนู</label>
+                        <input id="newName" type="text" placeholder="ชื่อเมนู"
+                            class="bg-slate-800 p-4 rounded-2xl w-full border border-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-500 font-bold ml-2 uppercase">ราคา (บาท)</label>
+                        <input id="newPrice" type="number" placeholder="บาท"
+                            class="bg-slate-800 p-4 rounded-2xl w-full border border-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-500 font-bold ml-2 uppercase">URL รูปภาพ</label>
+                        <input id="newImg" type="text" placeholder="https://..."
+                            class="bg-slate-800 p-4 rounded-2xl w-full border border-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all text-xs font-mono">
+                        <p class="text-[9px] text-slate-600 mt-1 ml-2">* แนะนำรูปทรงจัตุรัส 1:1 จากเว็บฝากรูป</p>
+                    </div>
+
+                    <button onclick="addMenu()"
+                        class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black text-lg transition-all shadow-lg shadow-blue-900/40 active:scale-95 mt-4">
+                        เพิ่มเมนูใหม่ +
+                    </button>
+                </div>
+
+                <hr class="border-slate-800 mb-8">
+
+                <h3 class="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-4 ml-1">รายการเมนูที่เปิดขาย
+                </h3>
+                <div id="adminMenuList" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // 🚩 Config Firebase (ใช้ตัวเดิมของปิ่นโต)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBUqWx7_Bht2LpLdZ2xlHTjSyZXM6Hm9wA",
+            authDomain: "schoolqueue-66054.firebaseapp.com",
+            databaseURL: "https://schoolqueue-66054-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "schoolqueue-66054",
+            storageBucket: "schoolqueue-66054.firebasestorage.app",
+            messagingSenderId: "1053844258705",
+            appId: "1:1053844258705:web:c6bd3ad8d657b45a8ea430",
+            measurementId: "G-KHGFTXH0C6"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const myShopID = "shop2";
+
+        // ดึงชื่อร้าน
+        db.ref(`shops/${myShopID}/name`).once('value', s => {
+            document.getElementById('shopTitle').innerText = s.val() || "ร้านค้าไม่ระบุชื่อ";
+        });
+
+        // ดึงคิวปัจจุบัน
+        db.ref(`queues/${myShopID}/current`).on('value', snapshot => {
+            document.getElementById('currentServingDisplay').innerText = snapshot.val() || 0;
+        });
+
+        // ดึงรายการสั่งซื้อ
+        db.ref(`orders/${myShopID}`).on('value', snapshot => {
+            const orders = snapshot.val();
+            let html = '';
+            for (let id in orders) {
+                let itemsList = '';
+                orders[id].items.forEach(item => {
+                    itemsList += `
+                        <li class="flex justify-between items-center bg-slate-800/40 p-2 rounded-xl mb-1 border border-slate-800">
+                            <span class="text-sm font-bold text-slate-300">• ${item.name}</span> 
+                            <span class="text-xs font-black text-slate-500">${item.price}.-</span>
+                        </li>`;
+                });
+
+                const isCooking = orders[id].status === 'cooking'; // เช็คสถานะว่ากำลังทำอยู่ไหม
+
+                html += `
+                <div class="bg-slate-900 p-6 rounded-[2.5rem] border ${isCooking ? 'border-orange-500 shadow-xl shadow-orange-900/20' : 'border-slate-800'} shadow-2xl relative overflow-hidden group hover:border-orange-500/50 transition-all">
+                    
+                    ${isCooking ? '<div class="absolute top-0 right-0 bg-orange-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest text-white animate-pulse">Now Cooking</div>' : ''}
+
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <p class="text-[10px] text-slate-600 font-black uppercase tracking-tighter">Queue Number</p>
+                            <span class="text-7xl font-black text-white group-hover:text-orange-500 transition-colors leading-none">#${orders[id].queue}</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-black text-blue-500 bg-blue-500/10 px-3 py-1 rounded-full mb-2">${orders[id].studentName || 'ไม่ระบุชื่อ'}</p>
+                            <p class="text-[10px] text-slate-600 font-mono">${new Date(orders[id].timestamp).toLocaleTimeString()}</p>
+                        </div>
+                    </div>
+                    <ul class="mb-6">${itemsList}</ul>
+                    <div class="flex justify-between items-center pt-4 border-t border-slate-800 gap-2">
+                        <span class="text-xl font-black text-green-400">${orders[id].totalPrice}.-</span>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="updateStatus('${id}', 'cooking')" 
+                                class="bg-orange-500 hover:bg-orange-400 px-4 py-3 rounded-2xl font-black text-[10px] transition-all shadow-lg shadow-orange-900/20 active:scale-90">
+                                COOKING 👨‍🍳
+                            </button>
+                            
+                            <button onclick="completeOrder('${id}', ${orders[id].queue})" 
+                                class="bg-green-600 hover:bg-green-500 px-6 py-3 rounded-2xl font-black text-sm transition-all shadow-lg shadow-green-900/20 active:scale-90">
+                                DONE ✅
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            document.getElementById('orderList').innerHTML = html ||
+                '<div class="col-span-full py-20 text-center text-slate-700 italic border-2 border-dashed border-slate-900 rounded-[3rem]">ยังไม่มีคิวค้างในขณะนี้...</div>';
+        });
+
+        // 🚩 ฟังก์ชันเพิ่มเมนู (อัปเดตให้รองรับสถานะ available)
+        function addMenu() {
+            const name = document.getElementById('newName').value;
+            const price = document.getElementById('newPrice').value;
+            const image = document.getElementById('newImg').value;
+
+            if (name && price) {
+                db.ref(`shops/${myShopID}/menu`).push({
+                    name: name,
+                    price: parseInt(price),
+                    image: image || "",
+                    available: true // 🚩 เพิ่มสถานะเปิดขายทันทีเมื่อสร้างใหม่
+                });
+                document.getElementById('newName').value = '';
+                document.getElementById('newPrice').value = '';
+                document.getElementById('newImg').value = '';
+            } else {
+                alert("กรุณากรอกชื่อเมนูและราคาให้ครบครับ");
+            }
+        }
+
+        // 🚩 ฟังก์ชันสลับสถานะ ของหมด-เปิดขาย
+        function toggleStatus(key, currentStatus) {
+            db.ref(`shops/${myShopID}/menu/${key}`).update({
+                available: !currentStatus
+            });
+        }
+
+        // 🚩 แสดงรายการเมนูพร้อมปุ่ม Toggle
+        db.ref(`shops/${myShopID}/menu`).on('value', snapshot => {
+            const menu = snapshot.val();
+            let html = '';
+            for (let key in menu) {
+                const isAvailable = menu[key].available !== false; // เช็กสถานะ
+                const imgPlaceholder = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=100&h=100&auto=format&fit=crop";
+                const displayImg = menu[key].image || imgPlaceholder;
+
+                html += `
+                <div class="flex items-center gap-4 p-3 ${isAvailable ? 'bg-slate-800/50' : 'bg-slate-900/30'} rounded-2xl border ${isAvailable ? 'border-slate-800' : 'border-red-900/20'} group hover:bg-slate-800 transition-all">
+                    <div class="w-12 h-12 rounded-xl overflow-hidden bg-slate-700 flex-shrink-0 border border-slate-700 ${isAvailable ? '' : 'grayscale opacity-40'}">
+                        <img src="${displayImg}" class="w-full h-full object-cover" onerror="this.src='${imgPlaceholder}'">
+                    </div>
+                    <div class="flex-grow">
+                        <p class="text-sm font-bold ${isAvailable ? 'text-slate-200' : 'text-slate-500 line-through'} leading-tight">${menu[key].name}</p>
+                        <p class="text-xs font-black text-blue-400">${menu[key].price}.-</p>
+                    </div>
+                    
+                    <button onclick="toggleStatus('${key}', ${isAvailable})" 
+                        class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all 
+                        ${isAvailable ? 'bg-green-600/20 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-slate-700 text-slate-400 hover:bg-red-600 hover:text-white'}">
+                        ${isAvailable ? 'เปิดขาย' : 'ของหมด'}
+                    </button>
+
+                    <button onclick="deleteMenu('${key}')" class="p-2 text-slate-600 hover:text-red-500 transition-colors">
+                        🗑️
+                    </button>
+                </div>`;
+            }
+            document.getElementById('adminMenuList').innerHTML = html;
+        });
+
+        function deleteMenu(key) {
+            if (confirm('ยืนยันที่จะลบเมนูนี้ออกจากร้านหรือไม่?')) {
+                db.ref(`shops/${myShopID}/menu/${key}`).remove();
+            }
+        }
+
+        function completeOrder(orderID, qNum) {
+            // 1. ดึงข้อมูลก่อนลบ
+            db.ref(`orders/${myShopID}/${orderID}`).once('value', snapshot => {
+                const orderData = snapshot.val();
+                if (orderData) {
+                    const today = new Date().toISOString().split('T')[0];
+                    // 2. ส่งไปที่กิ่ง history
+                    db.ref(`history/${myShopID}/${today}`).push({
+                        ...orderData,
+                        completedAt: Date.now()
+                    }).then(() => {
+                        // 3. อัปเดตคิวและลบจากหน้าจอ
+                        db.ref(`queues/${myShopID}/current`).set(qNum);
+                        db.ref(`orders/${myShopID}/${orderID}`).remove();
+                    });
+                }
+            });
+        }
+
+        // 🚩 ระบบคำนวณยอดขาย Real-time
+        const todayStr = new Date().toISOString().split('T')[0];
+        document.getElementById('todayDate').innerText = new Date().toLocaleDateString('th-TH');
+
+        db.ref(`history/${myShopID}/${todayStr}`).on('value', snapshot => {
+            const sales = snapshot.val();
+            let totalMoney = 0;
+            let orderCount = 0;
+
+            if (sales) {
+                for (let id in sales) {
+                    totalMoney += sales[id].totalPrice || 0;
+                    orderCount++;
+                }
+            }
+
+            // แสดงผลบนหน้าจอ
+            document.getElementById('todayTotalSales').innerText = totalMoney.toLocaleString() + ".-";
+            document.getElementById('todayOrderCount').innerText = orderCount;
+        });
+
+        // ฟังก์ชันสำหรับอัปเดตสถานะของออเดอร์ (เช่น จาก waiting เป็น cooking)
+        function updateStatus(orderID, newStatus) {
+            db.ref(`orders/${myShopID}/${orderID}`).update({
+                status: newStatus
+            }).then(() => {
+                console.log("อัปเดตสถานะเป็น: " + newStatus);
+            });
+        }
+    </script>
+</body>
+
+</html>
